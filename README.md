@@ -13,3 +13,5 @@ The supplied Qalb e Mast emblem is used in the header, home hero, footer and fav
 
 ## Design notes
 The layout uses responsive breakpoints for mobile, tablet and desktop, simplified navigation, minimal charcoal/ivory/gold styling, readable type, touch-friendly controls, and reduced-motion support. It does not load the previous GSAP or Three.js effects.
+
+Thumbnail display fix (23 October 2026): the video thumbnail frame is locked to a 16:9 aspect ratio. Source thumbnails use object-fit: contain and centered positioning so the entire original thumbnail remains visible without cropping or stretching. The dark gradient overlay was removed to preserve original thumbnail colours.
