@@ -1,17 +1,28 @@
-# Qalb e Mast website
+# Qalb e Mast — Fresh Responsive Website
 
-Responsive, multi-page static website for Qalb e Mast.
+A fully redesigned, multi-page static website for Qalb e Mast.
+
+## Design
+- New warm ivory, forest green, sage, and muted clay visual identity.
+- Responsive navigation with an accessible mobile menu and Explore dropdown.
+- Animated hero composition, CSS orbit details, subtle 3D depth, reveal-in transitions, and reduced-motion support.
+- Responsive content pages, cards, forms, footer and official social bubbles.
+- Original Qalb e Mast logo used in brand marks and favicon assets.
+
+## Video archive
+- All 18 records from the supplied `Individual_Video_JSON.zip` are present in `pages/videos.html` and normalized `assets/data/videos.json`.
+- Every record uses its supplied title, description, `thumbnailUrl`, exact watch URL, duration, `publishedAt`, category and privacy state.
+- Thumbnail frames use a fixed 16:9 ratio with `object-fit: contain` so the full thumbnail stays visible without cropping or stretching.
+- If a 1280×720 thumbnail variant is unavailable, a fallback requests the same video's `hqdefault.jpg` from YouTube.
+- One source record is marked private in the supplied metadata and is labeled accordingly; the other 17 records are marked public in that metadata.
 
 ## Open locally
-Open `qalbemast.me in a browser. No build step or package installation is required. The pages are static HTML/CSS/JavaScript. Internet access is used for YouTube thumbnail images and opening YouTube/social links.
+Open `index.html` in a browser. No build step or package installation is required. Internet access is needed for remote YouTube thumbnails and official profile/video links.
 
-## Videos
-`[qalbemast.me/videos](https://qalbemast.me/pages/videos.html)` contains all 18 records supplied in `Individual_Video_JSON.zip`, including exact title, publish date, video URL, duration and thumbnail URL. `assets/data/videos.json` keeps the normalized source metadata for future edits. Cards link directly to each supplied YouTube watch URL. One source record (`Nad-e-Ali a.s Female Version`) is marked private in the supplied metadata, so public playback may not be available for it.
-
-## Branding and contact
-The supplied Qalb e Mast emblem is used in the header, home hero, footer and favicon set. Social links: YouTube, Facebook, Instagram and TikTok. Contact email: qalbemast@gmail.com. WhatsApp: +92 323 2926011.
-
-## Design notes
-The layout uses responsive breakpoints for mobile, tablet and desktop, simplified navigation, minimal charcoal/ivory/gold styling, readable type, touch-friendly controls, and reduced-motion support. It does not load the previous GSAP or Three.js effects.
-
-Thumbnail display fix (23 October 2026): the video thumbnail frame is locked to a 16:9 aspect ratio. Source thumbnails use object-fit: contain and centered positioning so the entire original thumbnail remains visible without cropping or stretching. The dark gradient overlay was removed to preserve original thumbnail colours.
+## Official links
+- YouTube: https://www.youtube.com/@Qalb-e-Mast
+- Facebook: https://www.facebook.com/qalbemast/
+- Instagram: https://www.instagram.com/qalb_e_mast
+- TikTok: https://www.tiktok.com/@qalb_e_mast
+- Email: qalbemast@gmail.com
+- WhatsApp: +92 323 2926011
