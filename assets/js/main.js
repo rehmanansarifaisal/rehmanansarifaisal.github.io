@@ -1,95 +1,126 @@
 (() => {
-  const $ = (sel, el = document) => el.querySelector(sel);
-  const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
+  'use strict';
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const body = document.body;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const page = document.body.dataset.page || '';
-  $$('.nav-links a').forEach(a => {
-    if (a.dataset.page === page) a.classList.add('active');
+  // Current nav state, accessible expandable mobile navigation and outside-click dismissal.
+  const page = body.dataset.page || '';
+  $$('.nav-links a[data-page]').forEach(link => {
+    if (link.dataset.page === page) {
+      link.classList.add('active');
+      if (!link.hasAttribute('aria-current')) link.setAttribute('aria-current', 'page');
+    }
   });
-
   const toggle = $('.nav-toggle');
   const nav = $('.nav-links');
-  toggle?.addEventListener('click', () => nav?.classList.toggle('open'));
-  $$('.nav-links a').forEach(a => a.addEventListener('click', () => nav?.classList.remove('open')));
+  const closeNav = () => {
+    nav?.classList.remove('open');
+    toggle?.setAttribute('aria-expanded', 'false');
+    toggle?.setAttribute('aria-label', 'Open navigation');
+    nav?.querySelectorAll('.nav-dropdown[open]').forEach(d => d.removeAttribute('open'));
+  };
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') !== 'true';
+    nav?.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+  });
+  $$('.nav-links a').forEach(link => link.addEventListener('click', closeNav));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { closeNav(); toggle?.focus(); } });
+  document.addEventListener('click', event => {
+    if (nav?.classList.contains('open') && !nav.contains(event.target) && !toggle?.contains(event.target)) closeNav();
+  });
+  window.addEventListener('resize', () => { if (window.innerWidth > 1100) closeNav(); }, { passive: true });
 
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!reduce && window.gsap) {
-    gsap.from('.brand', {y:-18, opacity:0, duration:.75, ease:'power3.out'});
-    gsap.from('.hero-copy > *', {y:24, opacity:0, duration:.8, stagger:.08, delay:.12, ease:'power3.out'});
+  // Header elevation after the user scrolls away from the top.
+  const header = $('[data-header]');
+  const setHeaderElevation = () => header?.classList.toggle('is-scrolled', window.scrollY > 8);
+  setHeaderElevation();
+  window.addEventListener('scroll', setHeaderElevation, { passive: true });
+
+  // Smooth, restrained reveal-in animations. Content remains visible when JS or IO is unavailable.
+  if (!reducedMotion && 'IntersectionObserver' in window) {
+    document.documentElement.classList.add('js-motion');
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    $$('.reveal:not(.is-visible)').forEach(el => revealObserver.observe(el));
   }
 
-  const reveals = $$('.reveal');
-  if ('IntersectionObserver' in window && !reduce) {
-    const io = new IntersectionObserver(entries => entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        if (window.gsap) gsap.to(entry.target,{y:0,opacity:1,duration:.8,ease:'power3.out'});
-        else { entry.target.style.opacity = 1; entry.target.style.transform = 'none'; }
-        io.unobserve(entry.target);
-      }
-    }), {threshold:.12});
-    reveals.forEach(el => io.observe(el));
-  } else reveals.forEach(el => {el.style.opacity=1;el.style.transform='none'});
-
-  $$('.card, .mast, .video-card').forEach(card => {
-    card.addEventListener('pointermove', (e) => {
-      if (reduce) return;
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5;
-      card.style.transform = `translateY(-7px) rotateX(${(-y*4).toFixed(2)}deg) rotateY(${(x*5).toFixed(2)}deg)`;
-    });
-    card.addEventListener('pointerleave', () => card.style.transform='');
+  // Robust image fallback: retain a real thumbnail from the same YouTube video if max resolution is unavailable.
+  $$('.video-thumbnail[data-video-id]').forEach(img => {
+    img.addEventListener('error', () => {
+      const id = img.dataset.videoId;
+      if (!id || img.dataset.fallbackUsed === 'true') return;
+      img.dataset.fallbackUsed = 'true';
+      img.src = `https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;
+    }, { once: false });
   });
 
-  // Page-to-page veil transition; gracefully degrades without GSAP.
-  const veil = $('.page-transition');
-  if (veil && !reduce) {
-    document.addEventListener('click', e => {
-      const link = e.target.closest('a');
-      if (!link || !link.href || link.target === '_blank' || link.origin !== location.origin) return;
-      const u = new URL(link.href);
-      if (u.pathname === location.pathname && !u.search) return;
-      e.preventDefault();
-      if (window.gsap) gsap.to(veil,{y:'0%',duration:.55,ease:'power2.in',onComplete:()=>location.href=link.href});
-      else location.href=link.href;
+  // Light pointer tilt for wide-screen cards only; never hijack touch scrolling.
+  const finePointer = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+  if (finePointer && !reducedMotion) {
+    $$('[data-tilt]').forEach(el => {
+      el.addEventListener('pointermove', event => {
+        const r = el.getBoundingClientRect();
+        const x = (event.clientX - r.left) / r.width - .5;
+        const y = (event.clientY - r.top) / r.height - .5;
+        el.style.transform = `perspective(1100px) rotateY(${x * 3}deg) rotateX(${-y * 2}deg)`;
+      });
+      el.addEventListener('pointerleave', () => { el.style.transform = ''; });
     });
   }
 
-  // Home-only Three.js particle field.
-  const canvas = $('#three-bg');
-  if (canvas && window.THREE && !reduce) {
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, .1, 100);
-    camera.position.z = 7;
-    const renderer = new THREE.WebGLRenderer({canvas,alpha:true,antialias:true});
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6)); renderer.setSize(innerWidth,innerHeight);
-    const count = Math.min(1500, Math.floor(innerWidth*1.4));
-    const geo = new THREE.BufferGeometry(); const pts = new Float32Array(count*3);
-    for(let i=0;i<count;i++){pts[i*3]=(Math.random()-.5)*10;pts[i*3+1]=(Math.random()-.5)*7;pts[i*3+2]=(Math.random()-.5)*8;}
-    geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
-    const mat = new THREE.PointsMaterial({color:0xc8a461,size:.018,transparent:true,opacity:.7});
-    scene.add(new THREE.Points(geo,mat));
-    const tick=()=>{scene.rotation.y += .00022; scene.rotation.x += .00007; renderer.render(scene,camera); requestAnimationFrame(tick)}; tick();
-    addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-  }
-
-  // Poetry filters.
+  // Poetry category filters.
   const poemWrap = $('#poem-list');
   if (poemWrap) {
-    $$('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
-      $$('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
-      const f = btn.dataset.filter;
-      $$('.poem-card', poemWrap).forEach(card => card.style.display = (f==='all'||card.dataset.category===f)?'block':'none');
+    $$('.filter-btn').forEach(button => button.addEventListener('click', () => {
+      $$('.filter-btn').forEach(item => item.classList.toggle('active', item === button));
+      const category = button.dataset.filter;
+      $$('.poem-card', poemWrap).forEach(card => { card.hidden = !(category === 'all' || card.dataset.category === category); });
     }));
   }
 
-  // Quote search/filter.
-  const qSearch = $('#quote-search');
-  if (qSearch) qSearch.addEventListener('input', () => {
-    const q = qSearch.value.toLowerCase();
-    $$('.quote-card').forEach(c => c.style.display = c.innerText.toLowerCase().includes(q) ? '' : 'none');
+  // Quote search.
+  const quoteSearch = $('#quote-search');
+  if (quoteSearch) quoteSearch.addEventListener('input', () => {
+    const query = quoteSearch.value.trim().toLocaleLowerCase();
+    $$('.quote-card').forEach(card => { card.hidden = !card.innerText.toLocaleLowerCase().includes(query); });
   });
 
-  // Article renderer.
+  // Video archive search and category filtering.
+  const videoSearch = $('#video-search');
+  const videoFilter = $('#video-filter');
+  const videoGrid = $('#video-grid');
+  const videoCount = $('#video-count');
+  const videoEmpty = $('#video-empty');
+  if (videoGrid && videoSearch && videoFilter) {
+    const cards = $$('.video-card', videoGrid);
+    const filterVideos = () => {
+      const query = videoSearch.value.trim().toLocaleLowerCase();
+      const category = videoFilter.value;
+      let shown = 0;
+      cards.forEach(card => {
+        const searchableText = (card.innerText + ' ' + ($('.video-full-description', card)?.textContent || '')).toLocaleLowerCase();
+        const visible = searchableText.includes(query) && (category === 'all' || card.dataset.category === category);
+        card.hidden = !visible;
+        if (visible) shown += 1;
+      });
+      if (videoCount) videoCount.textContent = `Showing ${shown} of ${cards.length} videos`;
+      if (videoEmpty) videoEmpty.hidden = shown > 0;
+    };
+    videoSearch.addEventListener('input', filterVideos);
+    videoFilter.addEventListener('change', filterVideos);
+  }
+
+  // Article renderer for existing editorial templates.
   const articleRoot = $('#article-root');
   if (articleRoot) {
     const data = {
@@ -101,11 +132,30 @@
     };
     const key = new URLSearchParams(location.search).get('story') || 'nafs';
     const d = data[key] || data.nafs;
-    articleRoot.innerHTML = `<div class="crumbs"><a href="blogs.html">Blogs</a> / Article</div><div class="accent-line"></div><span class="eyebrow">${d.kicker}</span><h1>${d.title}</h1><p class="lead">${d.intro}</p><div class="article-cover-large"><img src="${d.cover}" alt="Decorative artwork for ${d.title}"></div>${d.sections.map(s=>`<section><h2>${s[0]}</h2><p>${s[1]}</p></section>`).join('')}<blockquote>"The heart is not rushed into clarity; it is trained to return."</blockquote><div class="callout"><strong class="serif" style="font-size:1.5rem">Continue the library</strong><p>Move from this article into poetry, practices or the latest Qalb e Mast videos.</p><a class="btn" href="poetry.html">Open Poetry Library</a></div>`;
+    articleRoot.innerHTML = `<div class="crumbs"><a href="blogs.html">Journal</a><span aria-hidden="true">/</span>Article</div><span class="eyebrow">${d.kicker}</span><h1>${d.title}</h1><p class="lead">${d.intro}</p><div class="article-cover-large"><img src="${d.cover}" alt="Illustration for ${d.title}"></div>${d.sections.map(section=>`<section><h2>${section[0]}</h2><p>${section[1]}</p></section>`).join('')}<blockquote>“The heart is not rushed into clarity; it is trained to return.”</blockquote><div class="callout"><strong class="serif" style="font-size:1.35rem">Continue exploring</strong><p>Explore poetry, practices or the latest Qalb e Mast videos.</p><a class="btn btn-primary" href="poetry.html">Open poetry library</a></div>`;
   }
 
+  // Owner-confirmed WhatsApp contact form.
+  const contactForm = $('[data-contact-form]');
+  if (contactForm) {
+    contactForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const status = $('#contact-status');
+      const digits = '923232926011';
+      const formData = new FormData(contactForm);
+      const name = String(formData.get('name') || '').trim();
+      const email = String(formData.get('email') || '').trim();
+      const topic = String(formData.get('topic') || 'General enquiry').trim();
+      const message = String(formData.get('message') || '').trim();
+      if (!name || !email || !message) { if (status) status.textContent = 'Please complete your name, email and message.'; return; }
+      const text = `Qalb e Mast website enquiry\nName: ${name}\nEmail: ${email}\nTopic: ${topic}\n\n${message}`;
+      const url = 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      if (status) status.textContent = 'WhatsApp opened. Review and send your message there.';
+    });
+  }
 
-  // Official social profiles: fixed, accessible bubble icons across the site.
+  // Quiet fixed social bubbles on screens where they do not intrude on content.
   const socialDock = document.createElement('nav');
   socialDock.className = 'social-dock';
   socialDock.setAttribute('aria-label', 'Official Qalb e Mast social profiles');
@@ -116,38 +166,9 @@
     {label:'TikTok',url:'https://www.tiktok.com/@qalb_e_mast',svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.6 6.7a6.6 6.6 0 0 1-4.1-4.1V2h-4.1v13.7a2.7 2.7 0 1 1-2.7-2.7c.4 0 .8.1 1.1.2V9a7.4 7.4 0 1 0 5.7 7.2V9.3a10.5 10.5 0 0 0 5.1 1.3V6.5c-.4.1-.7.2-1 .2Z"/></svg>'}
   ];
   socials.forEach(item => {
-    const a = document.createElement('a');
-    a.className = 'social-bubble'; a.href = item.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    const a = document.createElement('a'); a.className = 'social-bubble'; a.href = item.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
     a.setAttribute('aria-label', 'Follow Qalb e Mast on ' + item.label); a.title = item.label;
-    a.innerHTML = item.svg + '<span class="social-dock-label">' + item.label + '</span>';
-    socialDock.appendChild(a);
+    a.innerHTML = item.svg + '<span class="social-dock-label">' + item.label + '</span>'; socialDock.appendChild(a);
   });
   document.body.appendChild(socialDock);
-
-  // Official WhatsApp contact supplied by the owner in international format (digits only).
-  const contactForm = document.querySelector('[data-contact-form]');
-  if (contactForm) {
-    contactForm.addEventListener('submit', event => {
-      event.preventDefault();
-      const status = document.getElementById('contact-status');
-      const suppliedDigits = '923232926011';
-      const data = new FormData(contactForm);
-      const name = String(data.get('name') || '').trim();
-      const email = String(data.get('email') || '').trim();
-      const topic = String(data.get('topic') || 'General enquiry').trim();
-      const message = String(data.get('message') || '').trim();
-      if (!name || !email || !message) {
-        if (status) status.textContent = 'Please complete your name, email and message.';
-        return;
-      }
-      if (!/^923\d{9}$/.test(suppliedDigits)) {
-        if (status) status.innerHTML = 'WhatsApp could not be opened with the supplied contact number. Please email <a href="mailto:qalbemast@gmail.com">qalbemast@gmail.com</a> for now.';
-        return;
-      }
-      const text = `Qalb e Mast website enquiry\nName: ${name}\nEmail: ${email}\nTopic: ${topic}\n\n${message}`;
-      window.open('https://wa.me/' + suppliedDigits + '?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
-      if (status) status.textContent = 'WhatsApp opened in a new tab. Review and send your message there.';
-    });
-  }
-
 })();
