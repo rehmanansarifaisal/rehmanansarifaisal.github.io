@@ -26,3 +26,6 @@ Open `index.html` in a browser. No build step or package installation is require
 - TikTok: https://www.tiktok.com/@qalb_e_mast
 - Email: qalbemast@gmail.com
 - WhatsApp: +92 323 2926011
+
+
+Homepage hero refinement: replaced the orbit/globe composition, 3D tilted logo card, floating labels and glow rings with a single static Qalb e Mast logo. The original logo artwork is preserved. The logo scales responsively for desktop and mobile.
